@@ -1,0 +1,2410 @@
+# Cursor AI Rules - Professional Web Development Standards
+
+## Core Principles
+You are an expert AI programming assistant specializing in modern web development with Next.js. Your code must meet the highest standards in design, security, performance, and user experience.
+
+---
+
+## 1. Professional Design Standards
+
+### UI/UX Excellence
+- **Modern Design System**: Use Tailwind CSS with a consistent design token system (colors, spacing, typography)
+- **Component Library**: Leverage Headless UI or Radix UI for accessible, unstyled primitives
+- **Responsive Design**: Mobile-first approach with breakpoints (sm, md, lg, xl, 2xl)
+- **Dark Mode Support**: Implement system-aware dark mode using `next-themes` or Tailwind's dark variant
+- **Accessibility First**: WCAG 2.1 AA compliance minimum
+  - Proper ARIA labels
+  - Keyboard navigation support
+  - Focus states and visual indicators
+  - Screen reader optimization
+  - Semantic HTML5 elements
+
+### Visual Hierarchy
+- Clear typography scale (text-xs to text-6xl)
+- Consistent spacing system (4px/8px grid)
+- Strategic use of colors for emphasis
+- Proper contrast ratios (4.5:1 for text, 3:1 for UI components)
+- Loading states, skeletons, and transitions
+
+### Design Patterns
+- Card-based layouts for content grouping
+- Clear call-to-action buttons with hover/active states
+- Consistent iconography (Lucide React, Heroicons)
+- Toast notifications for feedback
+- Modal dialogs for confirmations
+- Progressive disclosure for complex forms
+
+---
+
+## 2. Maximum Security (OWASP Top 10)
+
+### Authentication & Authorization
+- **Never store credentials in code or environment files committed to git**
+- Use NextAuth.js v5+ for authentication
+- Implement CSRF protection (built into Next.js forms)
+- HTTP-only cookies for session tokens
+- Secure session management with automatic expiration
+- Role-based access control (RBAC)
+
+### Input Validation & Sanitization
+```typescript
+// ALWAYS validate inputs on server-side
+import { z } from 'zod';
+
+const schema = z.object({
+  email: z.string().email().max(255),
+  age: z.number().int().min(0).max(150)
+});
+
+// Server Action example
+export async function createUser(formData: FormData) {
+  const validated = schema.safeParse({
+    email: formData.get('email'),
+    age: Number(formData.get('age'))
+  });
+  
+  if (!validated.success) {
+    return { error: validated.error.flatten() };
+  }
+  // Process validated data
+}
+```
+
+### SQL Injection Prevention
+- **ALWAYS use Prisma ORM with parameterized queries**
+- Never concatenate user input into raw SQL
+- Use Prisma's type-safe query builder
+
+### XSS Prevention
+- React automatically escapes JSX content
+- For `dangerouslySetInnerHTML`, use DOMPurify
+- Set Content-Security-Policy headers in `next.config.ts`
+- **Never load external resources**: Self-host all fonts, stylesheets, and scripts to prevent XSS attacks
+
+```typescript
+// next.config.ts
+const nextConfig = {
+  async headers() {
+    return [{
+      source: '/:path*',
+      headers: [
+        {
+          key: 'Content-Security-Policy',
+          value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: https:;"
+        },
+        {
+          key: 'X-Frame-Options',
+          value: 'DENY'
+        },
+        {
+          key: 'X-Content-Type-Options',
+          value: 'nosniff'
+        },
+        {
+          key: 'Referrer-Policy',
+          value: 'origin-when-cross-origin'
+        },
+        {
+          key: 'Permissions-Policy',
+          value: 'camera=(), microphone=(), geolocation=()'
+        }
+      ]
+    }];
+  }
+};
+```
+
+### API Security
+- Rate limiting for all public endpoints
+- CORS configuration (only allow trusted origins)
+- API key rotation and secure storage
+- Input validation for all API routes
+- Proper HTTP status codes and error messages (no stack traces in production)
+
+### Environment Variables
+```typescript
+// Use type-safe environment validation
+import { z } from 'zod';
+
+const envSchema = z.object({
+  DATABASE_URL: z.string().url(),
+  NEXTAUTH_SECRET: z.string().min(32),
+  NEXTAUTH_URL: z.string().url(),
+  TWITCH_CLIENT_ID: z.string(),
+  TWITCH_CLIENT_SECRET: z.string(),
+});
+
+export const env = envSchema.parse(process.env);
+```
+
+### Dependencies & NPM Module Updates
+
+#### CRITICAL: Always Use Latest NPM Module Versions
+- **ALWAYS migrate to newest versions**: When installing new packages or updating existing ones, ALWAYS use the latest stable version
+- **Regular updates**: Run `ncu -u` weekly to check for updates, then review and apply
+- **Before any code generation**: Check current versions and use latest stable versions
+- **Migration priority**: When updating dependencies, migrate ALL related packages to compatible latest versions
+- **Version checking**: Use `npm outdated` or `ncu` to identify outdated packages before coding
+
+#### Update Workflow
+```bash
+# 1. Check for outdated packages
+ncu
+
+# 2. Update package.json to latest versions
+ncu -u
+
+# 3. Review changes in package.json
+# 4. Install updated dependencies
+npm install
+
+# 5. Test thoroughly
+npm run build
+npm run lint
+
+# 6. Fix any breaking changes
+# 7. Commit updated package.json and package-lock.json
+```
+
+#### When Installing New Packages
+- **ALWAYS use latest version**: `npm install package-name@latest` (or just `npm install package-name` for latest)
+- **Check compatibility**: Ensure new packages are compatible with current Next.js, React, and TypeScript versions
+- **Avoid deprecated packages**: Check npm registry for deprecation warnings
+- **Peer dependencies**: Resolve peer dependency warnings by updating related packages
+
+#### When Updating Existing Packages
+- **Update all related packages**: If updating Next.js, also update React, React-DOM, and related Next.js packages
+- **Breaking changes**: Review changelogs for breaking changes before major version updates
+- **Test after updates**: Always run `npm run build` and `npm run lint` after updates
+- **Gradual updates**: For major version jumps, update incrementally (e.g., Next.js 14 → 15 → 16)
+
+#### Package Version Strategy
+```json
+// package.json - Always use latest stable versions
+{
+  "dependencies": {
+    "next": "^16.1.1",  // Use latest stable, not old versions
+    "react": "^19.2.3", // Always latest compatible version
+    "@prisma/client": "^7.2.0" // Keep Prisma packages in sync
+  }
+}
+```
+
+#### Audit & Security
+- **Security audit**: Run `npm audit` before deployment
+- **Fix vulnerabilities**: Use `npm audit fix` for automatic fixes, or `npm audit fix --force` with caution
+- **Lock file**: Always commit `package-lock.json` to ensure consistent installs
+- **Minimal dependencies**: Only install what's necessary - fewer dependencies = fewer security risks
+
+#### Best Practices
+- **Weekly updates**: Set a weekly reminder to check and update dependencies
+- **Before deployment**: Always run `ncu -u` and review updates before deploying
+- **Documentation**: Document any breaking changes or migration steps needed
+- **Version pinning**: Only pin versions when absolutely necessary (e.g., known incompatibilities)
+- **Automation**: Consider using Dependabot or Renovate for automated dependency updates
+
+---
+
+## 3. Maximum Performance
+
+### Next.js Optimization
+- **Server Components by default** - only use Client Components when needed
+- Streaming and Suspense for faster initial load
+- Static Generation (SSG) where possible
+- Incremental Static Regeneration (ISR) for dynamic content
+- Route handlers for API endpoints (not pages/api)
+
+### Image Optimization
+```typescript
+import Image from 'next/image';
+
+// ALWAYS use next/image with proper sizing
+<Image 
+  src="/hero.jpg"
+  alt="Description"
+  width={1200}
+  height={600}
+  priority // for above-the-fold images
+  placeholder="blur"
+  quality={85}
+/>
+```
+
+### Font Optimization
+**CRITICAL**: Never load external resources like fonts from CDNs or external services. All fonts must be hosted locally.
+
+```typescript
+// Use local fonts only - download fonts and place in public/fonts/
+import localFont from 'next/font/local';
+
+const inter = localFont({
+  src: [
+    {
+      path: '../public/fonts/Inter-Regular.woff2',
+      weight: '400',
+      style: 'normal',
+    },
+    {
+      path: '../public/fonts/Inter-Medium.woff2',
+      weight: '500',
+      style: 'normal',
+    },
+    {
+      path: '../public/fonts/Inter-SemiBold.woff2',
+      weight: '600',
+      style: 'normal',
+    },
+    {
+      path: '../public/fonts/Inter-Bold.woff2',
+      weight: '700',
+      style: 'normal',
+    },
+  ],
+  variable: '--font-inter',
+  display: 'swap',
+});
+
+const robotoMono = localFont({
+  src: '../public/fonts/RobotoMono-Regular.woff2',
+  variable: '--font-roboto-mono',
+  display: 'swap',
+});
+```
+
+### External Resources Policy
+- **NO external fonts**: Use `next/font/local` with fonts stored in `public/fonts/`
+- **NO external CDNs**: All assets must be self-hosted
+- **NO external stylesheets**: All CSS must be bundled or inlined
+- **NO external scripts**: Except for essential third-party services (with explicit approval)
+- **Self-host everything**: Images, fonts, icons, and other assets must be in `public/` directory
+
+### Code Splitting & Lazy Loading
+```typescript
+import dynamic from 'next/dynamic';
+
+// Lazy load heavy components
+const HeavyChart = dynamic(() => import('./HeavyChart'), {
+  loading: () => <ChartSkeleton />,
+  ssr: false // if client-only
+});
+```
+
+### Database Performance
+- Proper indexing in Prisma schema
+- Connection pooling
+- Query optimization (select only needed fields)
+- Pagination for large datasets
+- Caching with Redis or Next.js cache
+
+```typescript
+// Efficient Prisma queries
+const users = await prisma.user.findMany({
+  select: {
+    id: true,
+    name: true,
+    email: true,
+    // Don't select unnecessary fields
+  },
+  where: { active: true },
+  take: 20,
+  skip: (page - 1) * 20,
+  orderBy: { createdAt: 'desc' }
+});
+```
+
+### Caching Strategy
+```typescript
+// Next.js 15+ cache control
+export const revalidate = 3600; // 1 hour
+
+// Fetch with cache
+const data = await fetch('https://api.example.com/data', {
+  next: { revalidate: 3600 }
+});
+
+// Prisma with cache
+import { unstable_cache } from 'next/cache';
+
+const getCachedUser = unstable_cache(
+  async (id: string) => {
+    return prisma.user.findUnique({ where: { id } });
+  },
+  ['user-by-id'],
+  { revalidate: 60, tags: ['users'] }
+);
+```
+
+### Bundle Size
+- Tree shaking enabled
+- Analyze bundle with `@next/bundle-analyzer`
+- Use barrel exports carefully
+- Dynamic imports for large libraries
+
+---
+
+## 4. Maximum User Experience
+
+### Loading States
+```typescript
+// Always provide feedback
+function Component() {
+  const [isLoading, setIsLoading] = useState(false);
+  
+  if (isLoading) {
+    return <Skeleton />;
+  }
+  
+  return <Content />;
+}
+```
+
+### Error Handling
+```typescript
+// error.tsx in route segments
+'use client';
+
+export default function Error({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen">
+      <h2 className="text-2xl font-bold mb-4">Something went wrong!</h2>
+      <button 
+        onClick={reset}
+        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+      >
+        Try again
+      </button>
+    </div>
+  );
+}
+```
+
+### Form Validation
+```typescript
+'use client';
+
+import { useFormState, useFormStatus } from 'react-dom';
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button 
+      type="submit" 
+      disabled={pending}
+      className="disabled:opacity-50"
+    >
+      {pending ? 'Submitting...' : 'Submit'}
+    </button>
+  );
+}
+
+export function MyForm() {
+  const [state, action] = useFormState(createUser, null);
+  
+  return (
+    <form action={action}>
+      <input name="email" type="email" required />
+      {state?.error?.email && (
+        <p className="text-red-600">{state.error.email}</p>
+      )}
+      <SubmitButton />
+    </form>
+  );
+}
+```
+
+### Accessibility Checklist
+- [ ] All images have meaningful alt text
+- [ ] Forms have associated labels
+- [ ] Buttons have descriptive text or aria-label
+- [ ] Focus is managed for modals/dialogs
+- [ ] Color is not the only means of conveying information
+- [ ] Interactive elements have min 44x44px touch target
+- [ ] Page has proper heading hierarchy (h1 → h2 → h3)
+- [ ] Skip to main content link available
+- [ ] Error messages are announced to screen readers
+
+### Performance Metrics
+- Lighthouse score > 90 for all categories
+- First Contentful Paint (FCP) < 1.8s
+- Largest Contentful Paint (LCP) < 2.5s
+- Cumulative Layout Shift (CLS) < 0.1
+- First Input Delay (FID) < 100ms
+- Time to Interactive (TTI) < 3.8s
+
+---
+
+## 5. Code Quality Standards
+
+### TypeScript
+- **ALWAYS use TypeScript** with strict mode
+- No `any` types (use `unknown` if needed)
+- Proper type inference
+- Interface over type for object shapes
+- Use generics for reusable components
+
+### File Structure
+```
+src/
+├── app/                    # Next.js App Router
+│   ├── (auth)/            # Route groups
+│   ├── (dashboard)/
+│   ├── api/               # API routes
+│   └── layout.tsx
+├── components/
+│   ├── ui/                # Reusable UI components
+│   ├── layout/            # Layout components
+│   └── features/          # Feature-specific components
+├── lib/                   # Utilities, helpers
+│   ├── db/               # Database client
+│   ├── auth/             # Auth configuration
+│   └── utils/            # Helper functions
+├── types/                 # TypeScript types
+└── styles/               # Global styles
+```
+
+### Naming Conventions
+- **Components**: PascalCase (`UserProfile.tsx`)
+- **Utilities**: camelCase (`formatDate.ts`)
+- **Constants**: UPPER_SNAKE_CASE (`MAX_UPLOAD_SIZE`)
+- **Hooks**: camelCase with 'use' prefix (`useAuth.ts`)
+- **Types/Interfaces**: PascalCase (`User`, `ApiResponse`)
+
+### Code Style
+- Functional components with hooks
+- Destructure props
+- Early returns for guard clauses
+- Max 200 lines per file (split if larger)
+- Single responsibility principle
+- DRY (Don't Repeat Yourself)
+
+### Comments
+```typescript
+// Good: Explain WHY, not WHAT
+// Using exponential backoff to prevent API rate limits
+const delay = Math.pow(2, retryCount) * 1000;
+
+// Bad: Obvious comment
+// Set delay to 1000
+const delay = 1000;
+```
+
+### Testing
+- Unit tests for utilities and helpers
+- Integration tests for API routes
+- E2E tests for critical user flows
+- Minimum 80% code coverage
+
+---
+
+## 6. Git & Deployment
+
+### Commit Messages (English)
+```
+feat: add user profile page
+fix: resolve login redirect issue
+perf: optimize database queries
+security: implement rate limiting
+docs: update API documentation
+refactor: simplify authentication logic
+test: add tests for user registration
+```
+
+### Pre-Deployment Checklist
+- [ ] **CRITICAL**: Run `ncu -u` to update ALL dependencies to latest versions
+- [ ] Review updated package versions in `package.json`
+- [ ] Run `npm install` to install updated dependencies
+- [ ] Run `npm run build` successfully
+- [ ] Run `npm run lint` with no errors
+- [ ] Run `npm audit` and fix vulnerabilities
+- [ ] Test in production mode locally (`npm run build && npm start`)
+- [ ] Check environment variables are set
+- [ ] Database migrations applied
+- [ ] Backup database before major changes
+- [ ] Commit updated `package.json` and `package-lock.json`
+
+### Environment Variables
+- Use `.env.local` for local development (gitignored)
+- Use `.env.example` for documentation (committed)
+- Never commit secrets to git
+- Use Vercel/hosting platform's environment settings for production
+
+---
+
+## 7. API Design & Documentation
+
+### API Key Management
+**CRITICAL**: Every user account must have two distinct API keys:
+1. **Read-Only API Key** - For GET operations only
+2. **Read-Write API Key** - For all CRUD operations
+
+#### Database Schema Requirements
+```typescript
+// Prisma schema example
+model ApiKey {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  key         String   @unique // Hashed API key
+  name        String   // User-friendly name (e.g., "Read-Only", "Read-Write")
+  type        ApiKeyType // READONLY or READWRITE
+  
+  lastUsedAt  DateTime?
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime? // Optional expiration
+  
+  @@index([userId])
+  @@index([key])
+}
+
+enum ApiKeyType {
+  READONLY
+  READWRITE
+}
+```
+
+#### API Key Security
+```typescript
+import { createHash, randomBytes } from 'crypto';
+
+// Generate secure API key
+export function generateApiKey(): { key: string; hash: string } {
+  const key = `sk_${randomBytes(32).toString('hex')}`;
+  const hash = createHash('sha256').update(key).digest('hex');
+  return { key, hash };
+}
+
+// Validate API key middleware
+export async function validateApiKey(
+  request: Request,
+  requiredType?: 'READONLY' | 'READWRITE'
+) {
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return { valid: false, error: 'Missing API key' };
+  }
+
+  const key = authHeader.substring(7);
+  const hash = createHash('sha256').update(key).digest('hex');
+
+  const apiKey = await prisma.apiKey.findUnique({
+    where: { key: hash },
+    include: { user: true }
+  });
+
+  if (!apiKey) {
+    return { valid: false, error: 'Invalid API key' };
+  }
+
+  if (apiKey.expiresAt && apiKey.expiresAt < new Date()) {
+    return { valid: false, error: 'API key expired' };
+  }
+
+  if (requiredType === 'READWRITE' && apiKey.type === 'READONLY') {
+    return { valid: false, error: 'Insufficient permissions' };
+  }
+
+  // Update last used timestamp
+  await prisma.apiKey.update({
+    where: { id: apiKey.id },
+    data: { lastUsedAt: new Date() }
+  });
+
+  return { valid: true, user: apiKey.user, apiKey };
+}
+```
+
+#### API Key Regeneration Endpoint
+```typescript
+// app/api/profile/api-keys/route.ts
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+
+// GET - List all API keys for current user
+export async function GET() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      { success: false, error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+      { status: 401 }
+    );
+  }
+
+  const apiKeys = await prisma.apiKey.findMany({
+    where: { userId: session.user.id },
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      lastUsedAt: true,
+      createdAt: true,
+      expiresAt: true,
+      // NEVER return the actual key or hash
+    }
+  });
+
+  return NextResponse.json({ success: true, data: apiKeys });
+}
+
+// POST - Create new API key
+export async function POST(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      { success: false, error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+      { status: 401 }
+    );
+  }
+
+  const body = await request.json();
+  const { type, name } = body;
+
+  if (!['READONLY', 'READWRITE'].includes(type)) {
+    return NextResponse.json(
+      { success: false, error: { message: 'Invalid API key type', code: 'INVALID_TYPE' } },
+      { status: 400 }
+    );
+  }
+
+  const { key, hash } = generateApiKey();
+
+  const apiKey = await prisma.apiKey.create({
+    data: {
+      userId: session.user.id,
+      key: hash,
+      name: name || type,
+      type: type as ApiKeyType
+    }
+  });
+
+  // Return the plain key ONLY once during creation
+  return NextResponse.json({
+    success: true,
+    data: {
+      id: apiKey.id,
+      key, // Show only during creation
+      type: apiKey.type,
+      name: apiKey.name,
+      message: 'Save this key securely. You will not be able to see it again.'
+    }
+  });
+}
+
+// DELETE - Revoke API key
+export async function DELETE(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      { success: false, error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+      { status: 401 }
+    );
+  }
+
+  const { searchParams } = new URL(request.url);
+  const keyId = searchParams.get('id');
+
+  if (!keyId) {
+    return NextResponse.json(
+      { success: false, error: { message: 'Missing key ID', code: 'MISSING_ID' } },
+      { status: 400 }
+    );
+  }
+
+  await prisma.apiKey.delete({
+    where: {
+      id: keyId,
+      userId: session.user.id // Ensure user owns the key
+    }
+  });
+
+  return NextResponse.json({ success: true, message: 'API key revoked' });
+}
+```
+
+#### Profile Page Integration
+```typescript
+// app/(dashboard)/profile/page.tsx
+'use client';
+
+import { useState } from 'react';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+
+export default function ProfilePage() {
+  const [apiKeys, setApiKeys] = useState([]);
+  const [newKey, setNewKey] = useState<string | null>(null);
+
+  const regenerateKey = async (type: 'READONLY' | 'READWRITE') => {
+    const response = await fetch('/api/profile/api-keys', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, name: type === 'READONLY' ? 'Read-Only Key' : 'Read-Write Key' })
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      setNewKey(result.data.key);
+      // Refresh key list
+      fetchApiKeys();
+    }
+  };
+
+  const revokeKey = async (keyId: string) => {
+    await fetch(`/api/profile/api-keys?id=${keyId}`, { method: 'DELETE' });
+    fetchApiKeys();
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <h2 className="text-2xl font-bold mb-4">API Keys</h2>
+        
+        <div className="space-y-4">
+          <div>
+            <h3 className="font-semibold">Read-Only API Key</h3>
+            <Button onClick={() => regenerateKey('READONLY')}>
+              Regenerate Read-Only Key
+            </Button>
+          </div>
+
+          <div>
+            <h3 className="font-semibold">Read-Write API Key</h3>
+            <Button onClick={() => regenerateKey('READWRITE')}>
+              Regenerate Read-Write Key
+            </Button>
+          </div>
+        </div>
+
+        {newKey && (
+          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded">
+            <p className="font-bold text-yellow-800">Save this key - you won't see it again!</p>
+            <code className="block mt-2 p-2 bg-white rounded">{newKey}</code>
+            <Button onClick={() => setNewKey(null)} className="mt-2">
+              I've saved it
+            </Button>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+```
+
+### RESTful Conventions
+- `GET /api/users` - List users
+- `GET /api/users/:id` - Get single user
+- `POST /api/users` - Create user
+- `PATCH /api/users/:id` - Update user
+- `DELETE /api/users/:id` - Delete user
+
+### API Authentication
+All API endpoints MUST check for either:
+1. **Session-based auth** (for web UI)
+2. **API key auth** (for programmatic access)
+
+```typescript
+// Middleware example
+export async function authenticateRequest(request: Request) {
+  // Check for session first
+  const session = await getServerSession(authOptions);
+  if (session?.user) {
+    return { authenticated: true, user: session.user, method: 'session' };
+  }
+
+  // Check for API key
+  const apiKeyResult = await validateApiKey(request);
+  if (apiKeyResult.valid) {
+    return { authenticated: true, user: apiKeyResult.user, method: 'apikey' };
+  }
+
+  return { authenticated: false, error: 'Unauthorized' };
+}
+```
+
+### Response Format
+```typescript
+// Success
+{
+  "success": true,
+  "data": { ... },
+  "meta": {
+    "timestamp": "2025-12-29T20:30:00Z",
+    "version": "v1"
+  }
+}
+
+// Error
+{
+  "success": false,
+  "error": {
+    "message": "User not found",
+    "code": "USER_NOT_FOUND",
+    "details": {}
+  }
+}
+
+// Paginated
+{
+  "success": true,
+  "data": [...],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 100,
+    "totalPages": 5
+  }
+}
+```
+
+### Error Handling
+```typescript
+import { NextResponse } from 'next/server';
+
+export async function GET(request: Request) {
+  try {
+    // Authenticate request
+    const auth = await authenticateRequest(request);
+    if (!auth.authenticated) {
+      return NextResponse.json(
+        { success: false, error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+        { status: 401 }
+      );
+    }
+
+    const data = await fetchData();
+    return NextResponse.json({ 
+      success: true, 
+      data,
+      meta: { timestamp: new Date().toISOString(), version: 'v1' }
+    });
+  } catch (error) {
+    console.error('Error fetching data:', error);
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: { 
+          message: 'Failed to fetch data',
+          code: 'FETCH_ERROR'
+        } 
+      },
+      { status: 500 }
+    );
+  }
+}
+```
+
+### API Documentation
+**MUST document all endpoints with:**
+- OpenAPI/Swagger specification
+- Request/response examples
+- Authentication requirements
+- Rate limiting information
+- Error codes and their meanings
+
+```typescript
+// Example OpenAPI annotation
+/**
+ * @openapi
+ * /api/users:
+ *   get:
+ *     summary: List all users
+ *     security:
+ *       - ApiKeyAuth: []
+ *       - SessionAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *         description: Page number
+ *     responses:
+ *       200:
+ *         description: List of users
+ *       401:
+ *         description: Unauthorized
+ */
+```
+
+---
+
+## 8. Code Documentation Standards
+
+### General Principles
+- **Document WHY, not WHAT**: Code should be self-explanatory; comments explain reasoning
+- **Keep it updated**: Outdated documentation is worse than no documentation
+- **Be concise**: Every word should add value
+- **Use English**: All documentation must be in English for consistency
+
+### JSDoc/TSDoc Comments
+
+#### Functions and Methods
+```typescript
+/**
+ * Validates and processes a user registration request.
+ * 
+ * This function performs email validation, checks for existing users,
+ * hashes the password using bcrypt, and creates a new user record.
+ * 
+ * @param email - User's email address (must be valid format)
+ * @param password - Plain text password (min 8 characters)
+ * @param username - Desired username (3-20 characters, alphanumeric)
+ * @returns Promise resolving to the created user object (without password)
+ * @throws {ValidationError} If input validation fails
+ * @throws {ConflictError} If email or username already exists
+ * 
+ * @example
+ * ```typescript
+ * const user = await registerUser(
+ *   'user@example.com',
+ *   'SecurePass123',
+ *   'johndoe'
+ * );
+ * console.log(user.id); // "cuid_xyz123"
+ * ```
+ */
+export async function registerUser(
+  email: string,
+  password: string,
+  username: string
+): Promise<User> {
+  // Implementation
+}
+```
+
+#### Complex Types and Interfaces
+```typescript
+/**
+ * Configuration options for the Twitch EventSub webhook.
+ * 
+ * @property callbackUrl - HTTPS URL where Twitch sends notifications
+ * @property secret - Secret for HMAC signature verification (min 10 chars)
+ * @property subscriptions - Array of event types to subscribe to
+ * @property retryPolicy - Optional retry configuration for failed deliveries
+ */
+interface WebhookConfig {
+  callbackUrl: string;
+  secret: string;
+  subscriptions: EventSubType[];
+  retryPolicy?: {
+    maxAttempts: number;
+    backoffMs: number;
+  };
+}
+
+/**
+ * Represents a poll option with voting statistics.
+ * 
+ * @remarks
+ * Votes are counted in real-time and cached for 60 seconds.
+ * The percentage is calculated dynamically based on total poll votes.
+ */
+interface PollOption {
+  /** Unique identifier */
+  id: string;
+  /** Display text (max 25 characters per Twitch guidelines) */
+  text: string;
+  /** Current vote count */
+  votes: number;
+  /** Percentage of total votes (0-100) */
+  percentage: number;
+}
+```
+
+#### React Components
+```typescript
+/**
+ * Alert animation overlay component for stream notifications.
+ * 
+ * Displays animated alerts for followers, subscribers, donations, etc.
+ * Supports custom animations, sounds, and durations per alert type.
+ * 
+ * @component
+ * @example
+ * ```tsx
+ * <AlertAnimation
+ *   type="follower"
+ *   username="JohnDoe"
+ *   message="Thanks for following!"
+ *   duration={5000}
+ *   onComplete={() => console.log('Alert finished')}
+ * />
+ * ```
+ */
+interface AlertAnimationProps {
+  /** Type of alert to display */
+  type: 'follower' | 'subscriber' | 'donation' | 'raid';
+  /** Username of the user triggering the alert */
+  username: string;
+  /** Optional custom message */
+  message?: string;
+  /** Duration in milliseconds (default: 5000) */
+  duration?: number;
+  /** Callback when animation completes */
+  onComplete?: () => void;
+}
+
+export function AlertAnimation({
+  type,
+  username,
+  message,
+  duration = 5000,
+  onComplete
+}: AlertAnimationProps) {
+  // Implementation
+}
+```
+
+#### Hooks
+```typescript
+/**
+ * Hook for managing Twitch authentication state and token refresh.
+ * 
+ * Automatically refreshes access tokens before expiration and
+ * handles re-authentication when refresh fails.
+ * 
+ * @returns Authentication state and helper functions
+ * 
+ * @example
+ * ```tsx
+ * function MyComponent() {
+ *   const { isAuthenticated, user, refreshAuth } = useTwitchAuth();
+ *   
+ *   if (!isAuthenticated) {
+ *     return <LoginButton />;
+ *   }
+ *   
+ *   return <div>Welcome, {user.displayName}!</div>;
+ * }
+ * ```
+ */
+export function useTwitchAuth() {
+  // Implementation
+}
+```
+
+### API Route Documentation
+
+#### Route Handler with OpenAPI
+```typescript
+/**
+ * @openapi
+ * /api/goals:
+ *   get:
+ *     summary: Retrieve all active goals for the authenticated user
+ *     description: |
+ *       Returns a list of stream goals including progress tracking.
+ *       Goals are sorted by creation date (newest first).
+ *     tags:
+ *       - Goals
+ *     security:
+ *       - ApiKeyAuth: []
+ *       - SessionAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [active, completed, all]
+ *         description: Filter goals by status (default: active)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: Page number for pagination (default: 1)
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *         description: Number of items per page (default: 20)
+ *     responses:
+ *       200:
+ *         description: List of goals retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Goal'
+ *                 pagination:
+ *                   $ref: '#/components/schemas/Pagination'
+ *       401:
+ *         description: Unauthorized - Invalid or missing authentication
+ *       429:
+ *         description: Rate limit exceeded
+ *       500:
+ *         description: Internal server error
+ *   post:
+ *     summary: Create a new goal
+ *     description: Creates a new stream goal with specified target and current values
+ *     tags:
+ *       - Goals
+ *     security:
+ *       - ApiKeyAuth: [readwrite]
+ *       - SessionAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - targetValue
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 minLength: 1
+ *                 maxLength: 100
+ *                 example: "Followers Goal"
+ *               description:
+ *                 type: string
+ *                 maxLength: 500
+ *                 example: "Reach 1000 followers!"
+ *               targetValue:
+ *                 type: integer
+ *                 minimum: 1
+ *                 example: 1000
+ *               currentValue:
+ *                 type: integer
+ *                 minimum: 0
+ *                 default: 0
+ *     responses:
+ *       201:
+ *         description: Goal created successfully
+ *       400:
+ *         description: Invalid input data
+ *       401:
+ *         description: Unauthorized
+ */
+export async function GET(request: Request) {
+  // Implementation
+}
+
+export async function POST(request: Request) {
+  // Implementation
+}
+```
+
+### Inline Comments Best Practices
+
+#### Good Comments
+```typescript
+// Exponential backoff prevents API rate limiting during high traffic
+const retryDelay = Math.pow(2, attemptCount) * 1000;
+
+// Twitch requires HMAC-SHA256 signature with raw body (not parsed JSON)
+const signature = createHmac('sha256', secret)
+  .update(rawBody)
+  .digest('hex');
+
+// Cache for 5 minutes to reduce database load during concurrent requests
+const cachedUser = await unstable_cache(
+  async () => fetchUser(userId),
+  [`user-${userId}`],
+  { revalidate: 300 }
+);
+
+// FIXME: Temporary workaround for Twitch API returning null displayName
+// See issue: https://github.com/twitchdev/issues/issues/123
+const displayName = user.displayName || user.username;
+
+// TODO: Implement automatic token refresh before expiration (expires in 4 hours)
+// Priority: High, Due: 2025-01-15
+```
+
+#### Bad Comments (Avoid)
+```typescript
+// Bad: States the obvious
+// Set count to 0
+const count = 0;
+
+// Bad: Outdated comment (code changed but comment didn't)
+// Returns user email
+function getUserProfile() { // Actually returns full profile now
+  return { id, name, email, avatar };
+}
+
+// Bad: Commented-out code (use git history instead)
+// const oldImplementation = () => { ... };
+
+// Bad: Vague and unhelpful
+// Do stuff with data
+processData(data);
+```
+
+### File Headers
+
+#### Utility/Library Files
+```typescript
+/**
+ * @fileoverview Twitch API client wrapper with rate limiting and error handling.
+ * 
+ * This module provides a type-safe interface to Twitch's Helix API with
+ * automatic token refresh, exponential backoff, and request queuing.
+ * 
+ * @module lib/twitch
+ * @requires @twurple/api
+ * @author Your Team Name
+ * @see https://dev.twitch.tv/docs/api/reference
+ */
+
+import { ApiClient } from '@twurple/api';
+```
+
+#### Component Files (Optional)
+```typescript
+/**
+ * @fileoverview Health bar overlay component for gaming streams.
+ * 
+ * Displays real-time player health with customizable colors, animations,
+ * and damage indicators. Integrates with OBS via browser source.
+ * 
+ * @module components/overlays/gaming/HealthBar
+ */
+```
+
+### README.md Documentation
+
+#### Project README Structure
+```markdown
+# Project Name
+
+Brief description (1-2 sentences)
+
+## Features
+
+- Feature 1
+- Feature 2
+- Feature 3
+
+## Tech Stack
+
+- Next.js 15+
+- TypeScript
+- Prisma
+- Tailwind CSS
+- NextAuth.js
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 20+
+- PostgreSQL 14+
+- Twitch Developer Account
+
+### Installation
+
+1. Clone the repository
+\`\`\`bash
+git clone https://github.com/yourusername/project.git
+cd project
+\`\`\`
+
+2. Install dependencies
+\`\`\`bash
+npm install
+\`\`\`
+
+3. Set up environment variables
+\`\`\`bash
+cp .env.example .env.local
+# Edit .env.local with your values
+\`\`\`
+
+4. Run database migrations
+\`\`\`bash
+npx prisma migrate dev
+\`\`\`
+
+5. Start development server
+\`\`\`bash
+npm run dev
+\`\`\`
+
+## Environment Variables
+
+See `.env.example` for all required variables.
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `DATABASE_URL` | PostgreSQL connection string | Yes |
+| `NEXTAUTH_SECRET` | Random secret for NextAuth | Yes |
+| `TWITCH_CLIENT_ID` | Twitch app client ID | Yes |
+
+## API Documentation
+
+API documentation is available at `/api-docs` when running in development mode.
+
+### Authentication
+
+Two authentication methods are supported:
+
+1. **Session-based** (for web UI)
+2. **API Key** (for programmatic access)
+
+See [API.md](./docs/API.md) for detailed endpoint documentation.
+
+## Project Structure
+
+\`\`\`
+src/
+├── app/              # Next.js App Router
+├── components/       # React components
+├── lib/              # Utilities and helpers
+└── types/            # TypeScript type definitions
+\`\`\`
+
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md)
+
+## License
+
+MIT License - see [LICENSE](./LICENSE)
+```
+
+### Prisma Schema Documentation
+
+```prisma
+/// User account linked to Twitch authentication.
+/// One user can have multiple API keys and overlays.
+model User {
+  id          String   @id @default(cuid())
+  
+  /// Twitch username (unique, lowercase)
+  username    String   @unique
+  
+  /// Display name shown in UI (can contain mixed case)
+  displayName String
+  
+  /// Twitch profile picture URL (optional)
+  avatar      String?
+  
+  /// OAuth access token (encrypted at rest)
+  /// @security Sensitive - never expose in API responses
+  accessToken String
+  
+  /// Refresh token for OAuth renewal
+  /// @security Sensitive - never expose in API responses
+  refreshToken String
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  apiKeys     ApiKey[]
+  overlays    Overlay[]
+  goals       Goal[]
+  
+  @@index([username])
+  @@map("users")
+}
+
+/// API keys for programmatic access to user's data.
+/// Each user should have one READONLY and one READWRITE key.
+model ApiKey {
+  id         String      @id @default(cuid())
+  userId     String
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  /// SHA-256 hash of the actual API key
+  /// The plain key is only shown once during creation
+  key        String      @unique
+  
+  /// Human-readable name (e.g., "Read-Only Key")
+  name       String
+  
+  /// Permission level
+  type       ApiKeyType
+  
+  /// Last time this key was used (for monitoring)
+  lastUsedAt DateTime?
+  
+  createdAt  DateTime    @default(now())
+  
+  /// Optional expiration date for automatic revocation
+  expiresAt  DateTime?
+  
+  @@index([userId])
+  @@index([key])
+  @@map("api_keys")
+}
+
+/// Permission levels for API keys
+enum ApiKeyType {
+  /// Can only read data (GET requests)
+  READONLY
+  
+  /// Can create, update, and delete data (all HTTP methods)
+  READWRITE
+}
+```
+
+### Complex Algorithm Documentation
+
+```typescript
+/**
+ * Calculates poll results with weighted voting system.
+ * 
+ * Algorithm details:
+ * 1. Subscribers' votes count as 2x regular votes
+ * 2. VIPs' votes count as 1.5x regular votes
+ * 3. Moderators' votes count as 1.5x regular votes
+ * 4. Multipliers stack (e.g., VIP subscriber = 3.5x)
+ * 
+ * Performance: O(n) where n is number of votes
+ * 
+ * @param votes - Array of vote objects with user metadata
+ * @returns Calculated results with weighted percentages
+ * 
+ * @remarks
+ * This function is called every 5 seconds during active polls.
+ * Results are cached in Redis with a 5-second TTL to handle
+ * concurrent requests during high traffic.
+ */
+function calculatePollResults(votes: Vote[]): PollResults {
+  // Step 1: Calculate weighted vote counts
+  const weightedVotes = votes.map(vote => {
+    let multiplier = 1.0;
+    
+    if (vote.user.isSubscriber) multiplier += 1.0;
+    if (vote.user.isVip) multiplier += 0.5;
+    if (vote.user.isModerator) multiplier += 0.5;
+    
+    return { ...vote, weight: multiplier };
+  });
+  
+  // Step 2: Group by option and sum weights
+  // ...implementation
+}
+```
+
+### Documentation Checklist
+
+- [ ] All public functions have JSDoc/TSDoc comments
+- [ ] Complex algorithms have step-by-step explanations
+- [ ] API endpoints have OpenAPI/Swagger annotations
+- [ ] Component props have detailed descriptions
+- [ ] Security-sensitive code has warning comments
+- [ ] TODOs have priority and due dates
+- [ ] FIXMEs reference issue tracker
+- [ ] README.md is up to date
+- [ ] API documentation is current
+- [ ] Database schema has descriptive comments
+- [ ] Environment variables are documented in .env.example
+
+---
+
+## 9. Vercel Deployment Standards
+
+### 9.1 Vercel Configuration
+
+#### Project Setup
+- **Always use Vercel CLI for initial setup**: `vercel` command
+- **Link project**: `vercel link` to connect local project to Vercel project
+- **Environment detection**: Vercel automatically detects Next.js projects
+
+#### vercel.json (Optional - Only if needed)
+```json
+{
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "regions": ["fra1"],
+  "functions": {
+    "app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/health",
+      "destination": "/api/health"
+    }
+  ]
+}
+```
+
+#### Build Configuration
+- **Build Command**: `npm run build` (default, usually not needed)
+- **Output Directory**: `.next` (automatic for Next.js)
+- **Install Command**: `npm install` (default)
+- **Root Directory**: `.` (project root)
+
+#### Region Selection
+- Choose region closest to your users (e.g., `fra1` for Europe)
+- Configure in `vercel.json` or Vercel dashboard
+- Consider database region proximity
+
+### 9.2 Vercel Platform Limits (Hobby/Free Tier)
+
+**CRITICAL**: Always consider these limits when designing features and architecture:
+
+#### Resource Limits
+- **API Requests**: Unlimited (but monitor for abuse)
+- **Monthly Active Users**: 50,000 maximum
+- **Database Size**: 500 MB maximum
+- **CPU**: Shared CPU (not dedicated)
+- **RAM**: 500 MB per function instance
+- **Function Execution Time**: 10 seconds (Hobby), 60 seconds (Pro)
+- **Concurrent Function Executions**: Limited by plan
+
+#### Bandwidth & Storage Limits
+- **Egress**: 5 GB per month
+- **Cached Egress**: 5 GB per month
+- **File Storage**: 1 GB total
+- **Build Minutes**: 6,000 per month (Hobby)
+
+#### Support & Features
+- **Support**: Community support only (no priority support)
+- **Team Members**: 1 (Hobby plan)
+- **Custom Domains**: Unlimited
+- **Preview Deployments**: Unlimited
+- **Analytics**: Basic analytics included
+
+#### Design Considerations Based on Limits
+
+```typescript
+// Optimize for 500 MB RAM limit
+// - Minimize memory usage in functions
+// - Use streaming for large responses
+// - Implement pagination for data-heavy endpoints
+
+// Example: Paginated API endpoint
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const page = parseInt(searchParams.get('page') || '1');
+  const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 100); // Max 100 per page
+  
+  // Use select to minimize memory footprint
+  const data = await prisma.user.findMany({
+    select: {
+      id: true,
+      username: true,
+      displayName: true,
+      // Only select needed fields
+    },
+    take: limit,
+    skip: (page - 1) * limit,
+  });
+  
+  return Response.json({ data, page, limit });
+}
+```
+
+#### Database Size Management (500 MB Limit)
+```typescript
+// Implement data retention policies
+// app/api/admin/cleanup/route.ts
+export async function POST(request: Request) {
+  // Archive old data instead of deleting
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  
+  // Move old logs to archive table or external storage
+  await prisma.log.deleteMany({
+    where: {
+      createdAt: {
+        lt: thirtyDaysAgo
+      }
+    }
+  });
+  
+  // Monitor database size
+  const dbSize = await prisma.$queryRaw<Array<{ size: string }>>`
+    SELECT pg_size_pretty(pg_database_size(current_database())) as size;
+  `;
+  
+  return Response.json({ 
+    message: 'Cleanup completed',
+    databaseSize: dbSize[0].size 
+  });
+}
+```
+
+#### Egress Optimization (5 GB Limit)
+```typescript
+// Minimize API responses
+// - Use compression
+// - Implement caching
+// - Return only necessary data
+
+// next.config.ts
+const nextConfig: NextConfig = {
+  compress: true, // Enable gzip compression
+  
+  // Use ISR to reduce egress
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=60, stale-while-revalidate=300'
+          }
+        ]
+      }
+    ];
+  }
+};
+```
+
+#### Memory Optimization (500 MB RAM Limit)
+```typescript
+// Avoid loading large datasets into memory
+// Use streaming and pagination
+
+// Bad: Loads all data into memory
+const allUsers = await prisma.user.findMany(); // Could be huge!
+
+// Good: Process in batches
+async function processUsersInBatches(batchSize = 100) {
+  let skip = 0;
+  let hasMore = true;
+  
+  while (hasMore) {
+    const batch = await prisma.user.findMany({
+      take: batchSize,
+      skip,
+      select: { id: true, email: true } // Only needed fields
+    });
+    
+    if (batch.length === 0) {
+      hasMore = false;
+      break;
+    }
+    
+    // Process batch
+    await processBatch(batch);
+    
+    skip += batchSize;
+  }
+}
+```
+
+#### File Storage Management (1 GB Limit)
+```typescript
+// Use external storage (S3, Cloudflare R2) for large files
+// Only store small files (< 1 MB) in Vercel storage
+
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+
+// Store large files externally
+export async function uploadFile(file: File) {
+  if (file.size > 1024 * 1024) { // > 1 MB
+    // Use external storage
+    const s3Client = new S3Client({ region: 'eu-central-1' });
+    const command = new PutObjectCommand({
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: file.name,
+      Body: await file.arrayBuffer(),
+    });
+    await s3Client.send(command);
+    return `https://${process.env.S3_BUCKET_NAME}.s3.amazonaws.com/${file.name}`;
+  }
+  
+  // Small files can use Vercel Blob Storage
+  // Implementation for Vercel Blob...
+}
+```
+
+#### Monitoring Limits
+```typescript
+// app/api/admin/limits/route.ts
+export async function GET() {
+  // Check current usage against limits
+  const usage = {
+    databaseSize: await getDatabaseSize(),
+    egressThisMonth: await getEgressUsage(),
+    fileStorageUsed: await getFileStorageUsage(),
+    activeUsersThisMonth: await getActiveUserCount(),
+  };
+  
+  const limits = {
+    databaseSize: 500 * 1024 * 1024, // 500 MB
+    egress: 5 * 1024 * 1024 * 1024, // 5 GB
+    fileStorage: 1024 * 1024 * 1024, // 1 GB
+    activeUsers: 50000,
+  };
+  
+  const warnings = [];
+  if (usage.databaseSize > limits.databaseSize * 0.8) {
+    warnings.push('Database size approaching limit');
+  }
+  if (usage.egressThisMonth > limits.egress * 0.8) {
+    warnings.push('Egress approaching monthly limit');
+  }
+  
+  return Response.json({ usage, limits, warnings });
+}
+```
+
+#### Best Practices for Limits
+- **Monitor usage**: Set up alerts at 80% of limits
+- **Optimize early**: Don't wait until hitting limits
+- **Use external services**: Offload large files, heavy processing
+- **Implement caching**: Reduce egress and database queries
+- **Archive old data**: Keep database size manageable
+- **Paginate everything**: Never load all data at once
+- **Compress responses**: Reduce egress usage
+- **Use CDN**: Cache static assets to reduce egress
+
+### 9.3 Next.js Build Optimization for Vercel
+
+#### Static Generation Strategy
+```typescript
+// app/dashboard/page.tsx
+// Use static generation where possible
+export const revalidate = 3600; // ISR: Revalidate every hour
+
+export default async function DashboardPage() {
+  const data = await fetchData();
+  return <Dashboard data={data} />;
+}
+```
+
+#### Dynamic Routes with ISR
+```typescript
+// app/posts/[slug]/page.tsx
+export async function generateStaticParams() {
+  const posts = await fetchAllPosts();
+  return posts.map((post) => ({
+    slug: post.slug,
+  }));
+}
+
+export const revalidate = 60; // Revalidate every minute
+```
+
+#### Build Output Analysis
+```typescript
+// next.config.ts
+import type { NextConfig } from 'next';
+
+const nextConfig: NextConfig = {
+  // ... existing config
+  
+  // Analyze bundle size in production builds
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // Add bundle analyzer in development
+      if (process.env.ANALYZE === 'true') {
+        const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
+        config.plugins.push(
+          new BundleAnalyzerPlugin({
+            analyzerMode: 'static',
+            openAnalyzer: false,
+          })
+        );
+      }
+    }
+    return config;
+  },
+  
+  // Optimize for Vercel
+  experimental: {
+    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+  },
+};
+
+export default nextConfig;
+```
+
+#### Pre-Deployment Build Check
+```bash
+# package.json scripts
+{
+  "scripts": {
+    "build": "next build",
+    "build:analyze": "ANALYZE=true next build",
+    "build:check": "npm run build && npm run lint"
+  }
+}
+```
+
+### 9.4 Database Connection Pooling
+
+#### Prisma Client Singleton for Serverless
+```typescript
+// lib/prisma.ts
+import { PrismaClient } from '@prisma/client';
+
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
+
+export const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL,
+      },
+    },
+  });
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+```
+
+#### Connection Pooling with Vercel Postgres
+```typescript
+// For Vercel Postgres, use connection pooling URL
+// Format: postgres://user:password@host:port/database?pgbouncer=true&connection_limit=1
+
+// lib/db.ts
+import { PrismaClient } from '@prisma/client';
+
+const createPrismaClient = () => {
+  const databaseUrl = process.env.DATABASE_URL;
+  
+  if (!databaseUrl) {
+    throw new Error('DATABASE_URL environment variable is not set');
+  }
+
+  // Vercel Postgres uses pgbouncer for connection pooling
+  const isVercel = process.env.VERCEL === '1';
+  const connectionString = isVercel && !databaseUrl.includes('pgbouncer=true')
+    ? `${databaseUrl}?pgbouncer=true&connection_limit=1`
+    : databaseUrl;
+
+  return new PrismaClient({
+    datasources: {
+      db: {
+        url: connectionString,
+      },
+    },
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error'] : ['error'],
+  });
+};
+
+const globalForPrisma = globalThis as unknown as {
+  prisma: ReturnType<typeof createPrismaClient> | undefined;
+};
+
+export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma;
+}
+```
+
+#### Connection Limit Best Practices
+- **Serverless Functions**: Use `connection_limit=1` with pgbouncer
+- **Edge Functions**: Use connection pooling URL
+- **Always close connections**: Prisma handles this automatically
+- **Monitor connection usage**: Check Vercel logs for connection errors
+
+### 9.5 Environment Variables
+
+#### Vercel Environment Variable Setup
+```typescript
+// lib/env.ts - Type-safe environment validation
+import { z } from 'zod';
+
+const envSchema = z.object({
+  // Database
+  DATABASE_URL: z.string().url(),
+  
+  // NextAuth
+  NEXTAUTH_SECRET: z.string().min(32),
+  NEXTAUTH_URL: z.string().url(),
+  
+  // Twitch
+  TWITCH_CLIENT_ID: z.string(),
+  TWITCH_CLIENT_SECRET: z.string(),
+  TWITCH_WEBHOOK_SECRET: z.string().optional(),
+  
+  // Vercel
+  VERCEL: z.string().optional(),
+  VERCEL_ENV: z.enum(['development', 'preview', 'production']).optional(),
+  
+  // Optional
+  SENTRY_DSN: z.string().url().optional(),
+});
+
+export const env = envSchema.parse(process.env);
+```
+
+#### Environment Variable Categories
+```bash
+# .env.example
+# Database
+DATABASE_URL=postgresql://user:password@host:port/database
+
+# NextAuth
+NEXTAUTH_SECRET=your-secret-key-min-32-chars
+NEXTAUTH_URL=http://localhost:3000
+
+# Twitch API
+TWITCH_CLIENT_ID=your-twitch-client-id
+TWITCH_CLIENT_SECRET=your-twitch-client-secret
+TWITCH_WEBHOOK_SECRET=your-webhook-secret
+
+# Optional
+SENTRY_DSN=https://your-sentry-dsn
+```
+
+#### Vercel Dashboard Configuration
+- **Production**: Set in Vercel Dashboard → Settings → Environment Variables
+- **Preview**: Inherits from Production, can override per branch
+- **Development**: Use `.env.local` (never commit)
+- **Secrets**: Use Vercel's encrypted secrets for sensitive values
+
+#### Environment Variable Validation on Deploy
+```typescript
+// app/api/health/route.ts
+import { env } from '@/lib/env';
+import { NextResponse } from 'next/server';
+
+export async function GET() {
+  try {
+    // Validate critical environment variables
+    const requiredVars = [
+      'DATABASE_URL',
+      'NEXTAUTH_SECRET',
+      'NEXTAUTH_URL',
+      'TWITCH_CLIENT_ID',
+      'TWITCH_CLIENT_SECRET',
+    ];
+
+    const missing = requiredVars.filter((key) => !process.env[key]);
+    
+    if (missing.length > 0) {
+      return NextResponse.json(
+        { 
+          status: 'error', 
+          message: 'Missing environment variables',
+          missing 
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ 
+      status: 'ok',
+      environment: process.env.VERCEL_ENV || 'development',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { status: 'error', message: 'Health check failed' },
+      { status: 500 }
+    );
+  }
+}
+```
+
+### 9.6 Deployment Checklist
+
+#### Pre-Deployment Verification
+```bash
+# Run before deploying
+npm run build:check  # Build + Lint
+npm run test          # Run tests (if available)
+npm audit             # Check for vulnerabilities
+ncu -u                # Update dependencies (review first)
+```
+
+#### Database Migration Strategy
+```bash
+# 1. Test migrations locally first
+npx prisma migrate dev
+
+# 2. Generate Prisma Client
+npx prisma generate
+
+# 3. Deploy to Vercel (migrations run automatically via postinstall)
+# Or use Vercel's postinstall script:
+# "postinstall": "prisma generate"
+
+# 4. For production, run migrations manually if needed:
+# npx prisma migrate deploy
+```
+
+#### Post-Deployment Verification
+```typescript
+// scripts/verify-deployment.ts
+async function verifyDeployment() {
+  const baseUrl = process.env.NEXTAUTH_URL || 'https://your-domain.vercel.app';
+  
+  // Check health endpoint
+  const health = await fetch(`${baseUrl}/api/health`);
+  if (!health.ok) {
+    throw new Error('Health check failed');
+  }
+  
+  // Check database connection
+  const dbCheck = await fetch(`${baseUrl}/api/health/db`);
+  if (!dbCheck.ok) {
+    throw new Error('Database connection failed');
+  }
+  
+  console.log('✅ Deployment verified successfully');
+}
+
+verifyDeployment();
+```
+
+#### Rollback Procedures
+- **Vercel Dashboard**: Use "Promote to Production" from previous deployment
+- **CLI**: `vercel rollback [deployment-url]`
+- **Database**: Keep migration rollback scripts ready
+- **Environment Variables**: Document all changes for quick restoration
+
+### 9.7 Vercel-Specific Features
+
+#### Edge Runtime Configuration
+```typescript
+// app/api/edge-example/route.ts
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
+
+export async function GET(request: Request) {
+  // Edge runtime - no Node.js APIs available
+  // Fast cold start, limited to Web APIs
+  return Response.json({ 
+    message: 'Running on Edge',
+    region: request.headers.get('x-vercel-region')
+  });
+}
+```
+
+#### Serverless Function Configuration
+```typescript
+// app/api/long-running/route.ts
+export const maxDuration = 30; // Maximum 30 seconds for Pro plan
+export const dynamic = 'force-dynamic';
+
+export async function POST(request: Request) {
+  // Long-running operations
+  const result = await processLongTask();
+  return Response.json({ result });
+}
+```
+
+#### Webhook Endpoint Configuration
+```typescript
+// app/api/webhooks/twitch/route.ts
+export const dynamic = 'force-dynamic';
+export const maxDuration = 10;
+
+export async function POST(request: Request) {
+  // Verify webhook signature
+  const signature = request.headers.get('twitch-eventsub-message-signature');
+  const body = await request.text();
+  
+  // Process webhook
+  // ...
+  
+  return Response.json({ received: true });
+}
+```
+
+#### Custom Domains Setup
+- Configure in Vercel Dashboard → Settings → Domains
+- Add DNS records as instructed by Vercel
+- SSL certificates are automatically provisioned
+- Use `NEXTAUTH_URL` environment variable with custom domain
+
+#### Analytics Integration
+```typescript
+// app/layout.tsx
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/next';
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        {children}
+        <Analytics />
+        <SpeedInsights />
+      </body>
+    </html>
+  );
+}
+```
+
+### 9.8 Monitoring & Debugging
+
+#### Vercel Logs Access
+```bash
+# View logs via CLI
+vercel logs [deployment-url]
+
+# Follow logs in real-time
+vercel logs --follow
+
+# Filter by function
+vercel logs --function=api/webhooks/twitch
+```
+
+#### Function Logs
+```typescript
+// Use console.log/error for logging (automatically captured)
+export async function GET(request: Request) {
+  console.log('Request received:', {
+    url: request.url,
+    method: request.method,
+    timestamp: new Date().toISOString()
+  });
+  
+  try {
+    const result = await processRequest();
+    return Response.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Request failed:', error);
+    return Response.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+```
+
+#### Error Tracking
+```typescript
+// lib/sentry.ts
+import * as Sentry from '@sentry/nextjs';
+
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.VERCEL_ENV || 'development',
+  tracesSampleRate: 1.0,
+  beforeSend(event, hint) {
+    // Filter out sensitive data
+    if (event.request?.cookies) {
+      delete event.request.cookies;
+    }
+    return event;
+  },
+});
+```
+
+#### Performance Monitoring
+```typescript
+// app/api/performance-test/route.ts
+export async function GET(request: Request) {
+  const start = Date.now();
+  
+  // Your logic here
+  await performOperation();
+  
+  const duration = Date.now() - start;
+  
+  // Log performance metrics
+  console.log('Performance:', {
+    duration,
+    endpoint: '/api/performance-test',
+    timestamp: new Date().toISOString()
+  });
+  
+  return Response.json({ duration });
+}
+```
+
+#### Real-Time Metrics
+- **Vercel Dashboard**: View function invocations, duration, errors
+- **Analytics**: Track page views, user sessions
+- **Speed Insights**: Monitor Core Web Vitals
+- **Function Logs**: Real-time error tracking
+
+### 9.9 Deployment Best Practices
+
+#### Git Integration
+- **Automatic Deployments**: Push to main branch triggers production deploy
+- **Preview Deployments**: Every PR gets a preview URL
+- **Branch Protection**: Protect main branch, require PR reviews
+- **Deployment Hooks**: Use Vercel webhooks for CI/CD integration
+
+#### Build Optimization
+```typescript
+// next.config.ts optimizations
+const nextConfig: NextConfig = {
+  // Compress output
+  compress: true,
+  
+  // Optimize images
+  images: {
+    formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 60,
+  },
+  
+  // Reduce bundle size
+  experimental: {
+    optimizePackageImports: [
+      'lucide-react',
+      '@radix-ui/react-icons',
+      'date-fns',
+    ],
+  },
+  
+  // Production source maps (optional, for debugging)
+  productionBrowserSourceMaps: false,
+};
+```
+
+#### Caching Strategy
+```typescript
+// API routes with caching
+export const revalidate = 3600; // 1 hour
+
+export async function GET() {
+  const data = await fetch('https://api.example.com/data', {
+    next: { revalidate: 3600 }
+  });
+  return Response.json(await data.json());
+}
+```
+
+#### Security Headers (Already in next.config.ts)
+```typescript
+// Ensure security headers are set
+const nextConfig: NextConfig = {
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-DNS-Prefetch-Control',
+            value: 'on'
+          },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload'
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN'
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff'
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block'
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'origin-when-cross-origin'
+          },
+        ],
+      },
+    ];
+  },
+};
+```
+
+### 9.10 Troubleshooting Common Issues
+
+#### Build Failures
+- Check build logs in Vercel Dashboard
+- Verify all environment variables are set
+- Ensure `package.json` scripts are correct
+- Check for TypeScript errors: `npm run build` locally
+
+#### Database Connection Issues
+- Verify `DATABASE_URL` is correct
+- Check connection pooling configuration
+- Ensure database allows Vercel IPs (if using external DB)
+- Review Prisma Client generation
+
+#### Function Timeout
+- Increase `maxDuration` if needed (Pro plan: 60s, Hobby: 10s)
+- Optimize long-running operations
+- Consider background jobs for heavy processing
+
+#### Environment Variable Issues
+- Verify variables are set in correct environment (Production/Preview)
+- Check for typos in variable names
+- Ensure variables are not empty
+- Use health check endpoint to verify
+
+---
+
+## Remember
+
+1. **Security first**: Validate everything, trust nothing
+2. **Performance matters**: Every millisecond counts
+3. **Users come first**: Accessibility and UX are not optional
+4. **Code is read more than written**: Clarity over cleverness
+5. **Test early, test often**: Bugs are cheaper to fix early
+6. **Document decisions**: Future you will thank you
+7. **ALWAYS use latest NPM modules**: When generating code, installing packages, or updating dependencies, ALWAYS use the newest stable versions. Never use outdated versions unless explicitly required for compatibility.
+8. **Stay updated**: Run `ncu -u` regularly (weekly minimum) and before every deployment
+9. **Think before coding**: Plan, then implement
+
+## AI Assistant Rules for NPM Modules
+
+**CRITICAL**: When generating code or suggesting package installations:
+
+1. **Always check latest versions**: Before suggesting or installing any package, verify the latest stable version
+2. **Use latest in examples**: All code examples must use latest stable package versions
+3. **Update existing code**: When modifying code that uses outdated packages, update those packages to latest versions
+4. **Migration guidance**: When updating packages, provide migration steps for breaking changes
+5. **Version awareness**: Be aware of current stable versions of major packages:
+   - Next.js: Latest stable (currently 16.x+)
+   - React: Latest stable (currently 19.x+)
+   - TypeScript: Latest stable (currently 5.x+)
+   - Prisma: Latest stable (currently 7.x+)
+6. **Compatibility checks**: Ensure all suggested packages are compatible with latest Next.js and React versions
+7. **No outdated versions**: Never suggest or use outdated package versions unless there's a specific compatibility requirement
+
+---
+
+## Quick Reference
+
+### Must-Use Packages
+- `next` (latest stable)
+- `react` & `react-dom`
+- `typescript`
+- `tailwindcss`
+- `@prisma/client` & `prisma`
+- `next-auth` (v5+)
+- `zod` (validation)
+- `@headlessui/react` or `@radix-ui/react-*`
+
+### Useful Tools
+- ESLint + Prettier
+- TypeScript strict mode
+- Husky (git hooks)
+- Bundle analyzer
+- Lighthouse CI
+
+---
+
+**Always write complete, production-ready code. No shortcuts, no placeholders.**
+
